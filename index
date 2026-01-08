@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バイト代計算機</title>
+    <style>
+        /* スマホで見やすいシンプルなデザイン */
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .container { max-width: 400px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; font-size: 1.5rem; }
+        label { display: block; margin-top: 15px; font-weight: bold; }
+        input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; background-color: #00704a; /* スタバっぽい緑 */ color: white; border: none; border-radius: 4px; margin-top: 20px; font-size: 16px; cursor: pointer; }
+        button:hover { opacity: 0.9; }
+        .result { margin-top: 20px; padding: 15px; background: #e9ecef; text-align: center; font-size: 1.2rem; font-weight: bold; border-radius: 4px; }
+        .note { font-size: 0.8rem; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>バイト代計算機 💰</h1>
+    
+    <label>時給 (円)</label>
+    <input type="number" id="hourlyWage" placeholder="例: 1100" value="1100">
+
+    <label>開始時間</label>
+    <input type="time" id="startTime" value="09:00">
+
+    <label>終了時間</label>
+    <input type="time" id="endTime" value="17:00">
+
+    <label>休憩時間 (分)</label>
+    <input type="number" id="breakTime" placeholder="例: 60" value="60">
+
+    <button onclick="calculatePay()">計算する</button>
+
+    <div class="result" id="resultArea">ここに金額が表示されます</div>
+</div>
+
+<script>
+    function calculatePay() {
+        // 1. 入力値の取得
+        const wage = parseInt(document.getElementById('hourlyWage').value);
+        const startStr = document.getElementById('startTime').value;
+        const endStr = document.getElementById('endTime').value;
+        const breakMins = parseInt(document.getElementById('breakTime').value) || 0;
+
+        if (!wage || !startStr || !endStr) {
+            alert("すべての項目を入力してください");
+            return;
+        }
+
+        // 2. 時間を「分」に変換して計算
+        const start = new Date(`2000-01-01T${startStr}`);
+        let end = new Date(`2000-01-01T${endStr}`);
+
+        // 日付をまたぐ場合（例: 22:00開始〜翌2:00終了）の処理
+        if (end < start) {
+            end.setDate(end.getDate() + 1);
+        }
+
+        const diffMs = end - start; // ミリ秒での差分
+        const diffMins = Math.floor(diffMs / 60000); // 分に変換
+        
+        // 実働時間（分） = 拘束時間 - 休憩時間
+        const workMins = diffMins - breakMins;
+
+        if (workMins <= 0) {
+            document.getElementById('resultArea').innerText = "勤務時間が短すぎます";
+            return;
+        }
+
+        // 3. 給与計算 (単純計算)
+        // ※正確性を期すため、一旦分単価を出さず、総分数を掛けてから60で割る
+        const totalPay = Math.floor(wage * workMins / 60);
+
+        // 4. 結果表示 (3桁区切り)
+        document.getElementById('resultArea').innerText = 
+            `¥${totalPay.toLocaleString()} (${Math.floor(workMins / 60)}時間${workMins % 60}分)`;
+    }
+</script>
+
+</body>
+</html>
