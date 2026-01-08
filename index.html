@@ -3,254 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>給与計算＆履歴管理</title>
+    <title>給与マネージャー</title>
     <style>
         :root {
             --mcd-red: #DA291C;
             --mcd-yellow: #FFC72C;
             --bg-color: #fffbea;
             --text-dark: #333;
+            --gray-light: #f1f3f5;
         }
 
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background-color: var(--bg-color); color: var(--text-dark); max-width: 500px; margin: 0 auto; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background-color: var(--bg-color); color: var(--text-dark); max-width: 500px; margin: 0 auto; padding-bottom: 50px; }
         
-        /* メインカード */
-        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 6px solid var(--mcd-red); margin-bottom: 20px;}
+        /* 共通カードデザイン */
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .card-top { border-top: 6px solid var(--mcd-red); }
+
+        h1 { text-align: center; margin-bottom: 20px; font-size: 1.4rem; color: var(--mcd-red); font-weight: 900; }
+        h2 { font-size: 1.1rem; margin-top: 0; margin-bottom: 15px; border-left: 5px solid var(--mcd-yellow); padding-left: 10px; }
         
-        h1 { text-align: center; margin-bottom: 20px; font-size: 1.5rem; color: var(--mcd-red); font-weight: 900; }
-        
-        .input-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; color: #555; }
-        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; -webkit-appearance: none; }
+        /* 入力エリア */
+        .input-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 0.85rem; color: #555; }
+        input { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; -webkit-appearance: none; }
         input:focus { border-color: var(--mcd-red); outline: none; }
 
-        button { width: 100%; padding: 14px; background-color: var(--mcd-red); color: var(--mcd-yellow); border: none; border-radius: 50px; font-size: 18px; font-weight: 900; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); margin-top: 10px; }
-        button:active { transform: scale(0.98); }
+        button.calc-btn { width: 100%; padding: 14px; background-color: var(--mcd-red); color: var(--mcd-yellow); border: none; border-radius: 50px; font-size: 18px; font-weight: 900; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        button.calc-btn:active { transform: scale(0.98); }
 
-        .result-box { margin-top: 25px; background: #fffdf0; padding: 20px; border-radius: 12px; text-align: center; border: 3px solid var(--mcd-yellow); }
-        .total-pay { font-size: 2.2rem; font-weight: 900; color: var(--mcd-red); margin: 10px 0; }
-        .details { font-size: 0.85rem; color: #666; text-align: left; margin-top: 10px; border-top: 2px dashed var(--mcd-yellow); padding-top: 10px; }
+        /* 結果ポップアップ */
+        .result-box { margin-top: 20px; background: #fffdf0; padding: 15px; border-radius: 8px; text-align: center; border: 2px solid var(--mcd-yellow); display: none; }
+        .total-pay { font-size: 2rem; font-weight: 900; color: var(--mcd-red); }
 
-        /* 履歴エリアのデザイン */
-        .history-section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .history-title { font-weight: bold; color: var(--text-dark); }
-        .clear-btn { background: #999; font-size: 0.8rem; padding: 5px 10px; width: auto; margin: 0; color: white; border-radius: 4px; }
+        /* ダッシュボード（週・月集計） */
+        .dashboard { display: flex; gap: 10px; margin-bottom: 20px; }
+        .stat-box { flex: 1; background: white; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-bottom: 4px solid var(--mcd-red); }
+        .stat-label { font-size: 0.8rem; color: #666; display: block; margin-bottom: 5px; }
+        .stat-value { font-size: 1.4rem; font-weight: bold; color: var(--text-dark); }
+
+        /* 月別比較グラフリスト */
+        .month-list { list-style: none; padding: 0; margin: 0; }
+        .month-item { margin-bottom: 15px; }
+        .month-header { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px; }
+        .month-name { font-weight: bold; }
+        .month-total { font-weight: bold; color: var(--mcd-red); }
         
-        .history-list { list-style: none; padding: 0; margin: 0; }
-        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 0.9rem; }
-        .history-date { color: #666; font-size: 0.8rem; }
-        .history-money { font-weight: bold; color: var(--mcd-red); }
+        .bar-container { background-color: #eee; border-radius: 4px; height: 12px; width: 100%; overflow: hidden; }
+        .bar-fill { background-color: var(--mcd-yellow); height: 100%; border-radius: 4px; transition: width 1s ease-in-out; }
+        /* 今月だけ色を変える */
+        .current-month .bar-fill { background-color: var(--mcd-red); }
+
+        /* 履歴リスト（アコーディオン的に下部に配置） */
+        .history-list { list-style: none; padding: 0; margin-top: 10px; max-height: 200px; overflow-y: auto; }
+        .history-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 0.85rem; }
 
         .hidden { display: none; }
+        .reset-btn { background: #ccc; border:none; padding:5px 10px; border-radius:4px; font-size:0.7rem; color:white; float:right; cursor:pointer;}
     </style>
 </head>
 <body id="mainBody" class="hidden">
 
-<div class="container">
-    <h1>i'm lovin' it 💰</h1>
+<div class="dashboard">
+    <div class="stat-box">
+        <span class="stat-label">今週の合計</span>
+        <span class="stat-value" id="weeklyTotal">¥0</span>
+    </div>
+    <div class="stat-box">
+        <span class="stat-label">今月の合計</span>
+        <span class="stat-value" id="monthlyTotal">¥0</span>
+    </div>
+</div>
+
+<div class="card card-top">
+    <h1>給与計算 & 登録</h1>
     
     <div class="input-group">
-        <label>基本時給 (円)</label>
+        <label>基本時給</label>
         <input type="number" id="hourlyWage" placeholder="時給を入力">
     </div>
 
-    <div class="input-group">
-        <label>開始時間</label>
-        <input type="time" id="startTime" value="17:00">
+    <div style="display:flex; gap:10px;">
+        <div class="input-group" style="flex:1;">
+            <label>開始</label>
+            <input type="time" id="startTime" value="17:00">
+        </div>
+        <div class="input-group" style="flex:1;">
+            <label>終了</label>
+            <input type="time" id="endTime" value="23:00">
+        </div>
     </div>
 
     <div class="input-group">
-        <label>終了時間</label>
-        <input type="time" id="endTime" value="23:00">
-    </div>
-
-    <div class="input-group">
-        <label>休憩時間 (分)</label>
+        <label>休憩 (分)</label>
         <input type="number" id="breakTime" value="45">
     </div>
 
-    <button onclick="calculateAndSave()">計算して保存</button>
+    <div class="input-group">
+        <label>日付 (記録用)</label>
+        <input type="date" id="workDate">
+    </div>
 
-    <div class="result-box" id="resultBox" style="display:none;">
-        <div style="font-weight:bold; color:#555;">今回の給与</div>
+    <button class="calc-btn" onclick="calculateAndSave()">計算して保存</button>
+
+    <div class="result-box" id="resultBox">
+        <div>登録しました！</div>
         <div class="total-pay" id="displayPay">¥0</div>
-        <div class="details" id="displayDetails"></div>
     </div>
 </div>
 
-<div class="history-section">
-    <div class="history-header">
-        <span class="history-title">最近の履歴</span>
-        <button class="clear-btn" onclick="clearHistory()">履歴リセット</button>
-    </div>
-    <ul id="historyList" class="history-list">
-        <li style="text-align:center; color:#999; padding:10px;">履歴はありません</li>
-    </ul>
-    <div style="text-align:right; margin-top:10px; font-weight:bold;">
-        合計: <span id="grandTotal" style="color:var(--mcd-red)">¥0</span>
-    </div>
-</div>
-
-<script>
-    const APP_PASSWORD = "0107"; 
-    const STORAGE_KEY_WAGE = "mcd_wage_setting";
-    const STORAGE_KEY_HISTORY = "mcd_work_history";
-
-    // 初期化処理
-    (function init() {
-        const input = prompt("パスワードを入力してください");
-        if (input === APP_PASSWORD) {
-            document.getElementById('mainBody').classList.remove('hidden');
-            loadSettings(); // 保存された時給を読み込む
-            renderHistory(); // 保存された履歴を表示する
-        } else {
-            document.body.innerHTML = "<div style='text-align:center; margin-top:50px; color:#DA291C;'><h1>アクセス不可</h1></div>";
-            document.body.style.display = "block";
-        }
-    })();
-
-    // 設定（時給）を読み込む
-    function loadSettings() {
-        const savedWage = localStorage.getItem(STORAGE_KEY_WAGE);
-        if (savedWage) {
-            document.getElementById('hourlyWage').value = savedWage;
-        } else {
-            document.getElementById('hourlyWage').value = 1100; // デフォルト
-        }
-    }
-
-    function calculateAndSave() {
-        const wage = parseInt(document.getElementById('hourlyWage').value);
-        const startStr = document.getElementById('startTime').value;
-        const endStr = document.getElementById('endTime').value;
-        const breakMins = parseInt(document.getElementById('breakTime').value) || 0;
-
-        if (!wage || !startStr || !endStr) {
-            alert("項目を入力してください");
-            return;
-        }
-
-        // 1. 時給を次回のために保存（これが設定保存になります）
-        localStorage.setItem(STORAGE_KEY_WAGE, wage);
-
-        // --- 計算ロジック（前回と同じ） ---
-        const startDate = new Date(`2000-01-01T${startStr}`);
-        let endDate = new Date(`2000-01-01T${endStr}`);
-        if (endDate < startDate) endDate.setDate(endDate.getDate() + 1);
-
-        const totalDurationMins = (endDate - startDate) / 1000 / 60;
-        
-        // 深夜・通常時間の算出
-        let totalLateRangeMins = 0;
-        let totalNormalRangeMins = 0;
-        let current = new Date(startDate);
-
-        for (let i = 0; i < totalDurationMins; i++) {
-            const h = current.getHours();
-            if (h >= 22 || h < 5) totalLateRangeMins++;
-            else totalNormalRangeMins++;
-            current.setMinutes(current.getMinutes() + 1);
-        }
-
-        // 休憩控除
-        let remainingBreak = breakMins;
-        if (totalNormalRangeMins >= remainingBreak) {
-            totalNormalRangeMins -= remainingBreak;
-            remainingBreak = 0;
-        } else {
-            remainingBreak -= totalNormalRangeMins;
-            totalNormalRangeMins = 0;
-        }
-        if (remainingBreak > 0) {
-            totalLateRangeMins -= remainingBreak;
-            if (totalLateRangeMins < 0) totalLateRangeMins = 0;
-        }
-
-        const finalWorkMins = totalNormalRangeMins + totalLateRangeMins;
-        if (finalWorkMins <= 0) {
-            alert("勤務時間が短すぎます");
-            return;
-        }
-
-        const normalPay = Math.floor(wage * (totalNormalRangeMins / 60));
-        const latePay = Math.floor(Math.floor(wage * 1.25) * (totalLateRangeMins / 60));
-        const totalPay = normalPay + latePay;
-
-        // --- 結果表示 ---
-        document.getElementById('resultBox').style.display = 'block';
-        document.getElementById('displayPay').innerText = `¥${totalPay.toLocaleString()}`;
-        document.getElementById('displayDetails').innerHTML = `
-            通常: ${Math.floor(totalNormalRangeMins/60)}h${totalNormalRangeMins%60}m<br>
-            深夜: ${Math.floor(totalLateRangeMins/60)}h${totalLateRangeMins%60}m
-        `;
-
-        // 2. 履歴に保存
-        addHistory(totalPay, finalWorkMins);
-    }
-
-    // 履歴追加処理
-    function addHistory(pay, mins) {
-        // 現在の履歴を取得
-        let history = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY)) || [];
-        
-        const now = new Date();
-        const dateStr = `${now.getMonth()+1}/${now.getDate()}`; // 今日の日付
-        const hours = Math.floor(mins / 60);
-        const m = mins % 60;
-
-        // 先頭に追加
-        history.unshift({
-            date: dateStr,
-            pay: pay,
-            time: `${hours}h${m}m`
-        });
-
-        // 保存
-        localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
-        
-        // 画面更新
-        renderHistory();
-    }
-
-    // 履歴表示処理
-    function renderHistory() {
-        const history = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY)) || [];
-        const listEl = document.getElementById('historyList');
-        const totalEl = document.getElementById('grandTotal');
-        
-        listEl.innerHTML = "";
-        let grandTotal = 0;
-
-        if (history.length === 0) {
-            listEl.innerHTML = "<li style='text-align:center; color:#999; padding:10px;'>履歴はありません</li>";
-            totalEl.innerText = "¥0";
-            return;
-        }
-
-        history.forEach((item, index) => {
-            grandTotal += item.pay;
-            const li = document.createElement('li');
-            li.className = 'history-item';
-            li.innerHTML = `
-                <div>
-                    <div class="history-date">${item.date} - ${item.time}</div>
-                </div>
-                <div class="history-money">¥${item.pay.toLocaleString()}</div>
-            `;
-            listEl.appendChild(li);
-        });
-
-        totalEl.innerText = `¥${grandTotal.toLocaleString()}`;
-    }
-
-    function clearHistory() {
-        if(confirm("履歴をすべて消去しますか？")) {
-            localStorage.removeItem(STORAGE_KEY_HISTORY);
-            renderHistory();
-        }
-    }
-</script>
-
-</body>
-</html>
+<div class="card">
+    <h2>月別レポート 📊</h2>
+    <ul id="monthChartList" class="month-list">
+        <li style="text-align:center; color:#999;">
