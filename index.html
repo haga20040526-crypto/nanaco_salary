@@ -104,7 +104,7 @@
 
 <script>
     // --- 設定 ---
-    const APP_PASSWORD = "0107";
+    const APP_PASSWORD = "040802";
     const KEY_DATA = "mcd_app_data_main"; 
     const OLD_KEYS = ["mcd_work_history", "mcd_work_history_v2", "mcd_wage_setting"];
     let appData = { wage: 1100, history: [] };
@@ -112,13 +112,13 @@
     // --- 初期化 ---
     (function init() {
         // ※パスワード機能を使いたい場合は以下のコメントアウト( /* ... */ )を外してください
-        /*
+        
         const input = prompt("パスワードを入力");
         if (input !== APP_PASSWORD) {
             document.body.innerHTML = "<h1 style='text-align:center;margin-top:50px;'>Locked</h1>";
             return;
         }
-        */
+        
 
         loadAndMigrateData();
         
