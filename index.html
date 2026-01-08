@@ -3,115 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>給与マネージャー</title>
+    <title>給与マネージャー (Safe Ver.)</title>
     <style>
-        :root {
-            --mcd-red: #DA291C;
-            --mcd-yellow: #FFC72C;
-            --bg-color: #fffbea;
-            --text-dark: #333;
-            --gray-light: #f1f3f5;
-        }
-
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background-color: var(--bg-color); color: var(--text-dark); max-width: 500px; margin: 0 auto; padding-bottom: 50px; }
+        :root { --mcd-red: #DA291C; --mcd-yellow: #FFC72C; --bg-color: #fffbea; --text-dark: #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background-color: var(--bg-color); color: var(--text-dark); max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
         
-        /* 共通カードデザイン */
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .card-top { border-top: 6px solid var(--mcd-red); }
-
-        h1 { text-align: center; margin-bottom: 20px; font-size: 1.4rem; color: var(--mcd-red); font-weight: 900; }
-        h2 { font-size: 1.1rem; margin-top: 0; margin-bottom: 15px; border-left: 5px solid var(--mcd-yellow); padding-left: 10px; }
         
-        /* 入力エリア */
+        h1 { text-align: center; margin-bottom: 20px; font-size: 1.4rem; color: var(--mcd-red); font-weight: 900; }
+        h2 { font-size: 1.1rem; margin-top: 0; border-left: 5px solid var(--mcd-yellow); padding-left: 10px; }
+        
         .input-group { margin-bottom: 12px; }
-        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 0.85rem; color: #555; }
+        label { display: block; font-weight: bold; font-size: 0.85rem; color: #555; }
         input { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; -webkit-appearance: none; }
-        input:focus { border-color: var(--mcd-red); outline: none; }
-
-        button.calc-btn { width: 100%; padding: 14px; background-color: var(--mcd-red); color: var(--mcd-yellow); border: none; border-radius: 50px; font-size: 18px; font-weight: 900; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        button.calc-btn:active { transform: scale(0.98); }
-
-        /* 結果ポップアップ */
+        
+        button { width: 100%; padding: 14px; border: none; border-radius: 50px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: opacity 0.2s; }
+        button:active { transform: scale(0.98); }
+        .btn-primary { background-color: var(--mcd-red); color: var(--mcd-yellow); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .btn-secondary { background-color: #666; color: white; font-size: 0.9rem; padding: 10px; border-radius: 8px; width: auto; display: inline-block; }
+        .btn-action { background-color: #007bff; color: white; border-radius: 8px; padding: 10px; font-size: 0.9rem; margin-right: 5px; width: 48%; }
+        
         .result-box { margin-top: 20px; background: #fffdf0; padding: 15px; border-radius: 8px; text-align: center; border: 2px solid var(--mcd-yellow); display: none; }
         .total-pay { font-size: 2rem; font-weight: 900; color: var(--mcd-red); }
-
-        /* ダッシュボード（週・月集計） */
-        .dashboard { display: flex; gap: 10px; margin-bottom: 20px; }
-        .stat-box { flex: 1; background: white; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-bottom: 4px solid var(--mcd-red); }
-        .stat-label { font-size: 0.8rem; color: #666; display: block; margin-bottom: 5px; }
-        .stat-value { font-size: 1.4rem; font-weight: bold; color: var(--text-dark); }
-
-        /* 月別比較グラフリスト */
-        .month-list { list-style: none; padding: 0; margin: 0; }
-        .month-item { margin-bottom: 15px; }
-        .month-header { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 5px; }
-        .month-name { font-weight: bold; }
-        .month-total { font-weight: bold; color: var(--mcd-red); }
         
-        .bar-container { background-color: #eee; border-radius: 4px; height: 12px; width: 100%; overflow: hidden; }
-        .bar-fill { background-color: var(--mcd-yellow); height: 100%; border-radius: 4px; transition: width 1s ease-in-out; }
-        /* 今月だけ色を変える */
+        .dashboard { display: flex; gap: 10px; margin-bottom: 20px; }
+        .stat-box { flex: 1; background: white; padding: 15px; border-radius: 12px; text-align: center; border-bottom: 4px solid var(--mcd-red); }
+        .stat-value { font-size: 1.4rem; font-weight: bold; }
+        
+        .month-item { margin-bottom: 10px; font-size: 0.9rem; }
+        .bar-container { background-color: #eee; height: 10px; width: 100%; border-radius: 4px; margin-top: 2px; }
+        .bar-fill { background-color: var(--mcd-yellow); height: 100%; border-radius: 4px; }
         .current-month .bar-fill { background-color: var(--mcd-red); }
 
-        /* 履歴リスト（アコーディオン的に下部に配置） */
-        .history-list { list-style: none; padding: 0; margin-top: 10px; max-height: 200px; overflow-y: auto; }
-        .history-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 0.85rem; }
-
-        .hidden { display: none; }
-        .reset-btn { background: #ccc; border:none; padding:5px 10px; border-radius:4px; font-size:0.7rem; color:white; float:right; cursor:pointer;}
+        /* データ管理エリア */
+        .data-area { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #ddd; }
+        #fileInput { display: none; }
     </style>
 </head>
-<body id="mainBody" class="hidden">
+<body>
 
 <div class="dashboard">
-    <div class="stat-box">
-        <span class="stat-label">今週の合計</span>
-        <span class="stat-value" id="weeklyTotal">¥0</span>
-    </div>
-    <div class="stat-box">
-        <span class="stat-label">今月の合計</span>
-        <span class="stat-value" id="monthlyTotal">¥0</span>
-    </div>
+    <div class="stat-box"><span>今週の合計</span><br><span class="stat-value" id="weeklyTotal">¥0</span></div>
+    <div class="stat-box"><span>今月の合計</span><br><span class="stat-value" id="monthlyTotal">¥0</span></div>
 </div>
 
 <div class="card card-top">
-    <h1>給与計算 & 登録</h1>
-    
-    <div class="input-group">
-        <label>基本時給</label>
-        <input type="number" id="hourlyWage" placeholder="時給を入力">
-    </div>
-
+    <h1>給与マネージャー</h1>
+    <div class="input-group"><label>基本時給</label><input type="number" id="hourlyWage"></div>
     <div style="display:flex; gap:10px;">
-        <div class="input-group" style="flex:1;">
-            <label>開始</label>
-            <input type="time" id="startTime" value="17:00">
-        </div>
-        <div class="input-group" style="flex:1;">
-            <label>終了</label>
-            <input type="time" id="endTime" value="23:00">
-        </div>
+        <div class="input-group" style="flex:1;"><label>開始</label><input type="time" id="startTime" value="17:00"></div>
+        <div class="input-group" style="flex:1;"><label>終了</label><input type="time" id="endTime" value="23:00"></div>
     </div>
-
-    <div class="input-group">
-        <label>休憩 (分)</label>
-        <input type="number" id="breakTime" value="45">
-    </div>
-
-    <div class="input-group">
-        <label>日付 (記録用)</label>
-        <input type="date" id="workDate">
-    </div>
-
-    <button class="calc-btn" onclick="calculateAndSave()">計算して保存</button>
-
+    <div class="input-group"><label>休憩 (分)</label><input type="number" id="breakTime" value="45"></div>
+    <div class="input-group"><label>日付</label><input type="date" id="workDate"></div>
+    <button class="btn-primary" onclick="calculateAndSave()">計算して保存</button>
+    
     <div class="result-box" id="resultBox">
-        <div>登録しました！</div>
-        <div class="total-pay" id="displayPay">¥0</div>
+        <div>登録しました</div><div class="total-pay" id="displayPay">¥0</div>
     </div>
 </div>
 
 <div class="card">
-    <h2>月別レポート 📊</h2>
-    <ul id="monthChartList" class="month-list">
-        <li style="text-align:center; color:#999;">
+    <h2>月別レポート</h2>
+    <div id="monthChartList"></div>
+</div>
+
+<div class="card">
+    <h2>データ管理・バックアップ</h2>
+    <p style="font-size:0.8rem; color:#666; margin-top:0;">
+        機種変更やデータ消去に備えて、データをファイルに保存できます。
+    </p>
+    <div style="display:flex; justify-content:space-between; margin-top:10px;">
+        <button class="btn-action" onclick="downloadBackup()">💾 バックアップ保存</button>
+        <button class="btn-action" style="background-color:#28a745;" onclick="document.getElementById('fileInput').click()">📂 データ復元</button>
+    </div>
+    <input type="file" id="fileInput" accept=".json" onchange="restoreBackup(this)">
+    
+    <div style="margin-top:20px; text-align:right;">
+        <button class="btn-secondary" onclick="fullReset()">⚠️ 全データ消去</button>
+    </div>
+</div>
+
+<script>
+    // 定数設定
+    const APP_PASSWORD = "0107";
+    // 統一ストレージキー（今後はこれを使い続ける）
+    const KEY_DATA = "mcd_app_data_main"; 
+    // 過去のバージョンのキー（移行用）
+    const OLD_KEYS = ["mcd_work_history", "mcd_work_history_v2", "mcd_wage_setting"];
+
+    // アプリ状態管理
+    let appData = {
+        wage: 1100,
+        history: []
+    };
+
+    // --- 初期化処理 ---
+    (function init() {
+        // パスワードチェック（不要ならこのif文を外してください）
+        /*
+        const input = prompt("パスワードを入力");
+        if (input !== APP_PASSWORD) {
+            document.body.innerHTML = "<h1 style='text-align:center;margin-top:50px;'>Locked</h1>";
+            return;
+        }
+        */
+
+        // 1. データの読み込み & 移行チェック
+        loadAndMigrateData();
+        
+        // 2. 画面への反映
+        document.getElementById('hourlyWage').value = appData.wage;
+        document.getElementById('workDate').valueAsDate = new Date();
+        refreshDashboard();
+    })();
+
+    // --- データ保存・読み込みロジック (最重要) ---
+    function loadAndMigrateData() {
+        // メインデータを取得
+        const savedJSON = localStorage.getItem(KEY_DATA);
+
+        if (savedJSON) {
+            // データがある場合：そのまま使う
+            appData = JSON.parse(savedJSON);
+        } else {
+            // データがない場合：古いバージョンのデータを探して移行する
+            console.log("メインデータなし。旧データの移行を試みます...");
+            let foundOldData = false;
+
+            // ver 1, 2 の履歴データを探す
+            OLD_KEYS.forEach(k => {
+                const old = localStorage.getItem(k);
+                if (old) {
+                    try {
+                        const parsed = JSON.parse(old);
+                        if (Array.isArray(parsed)) {
+                            // 履歴データの場合
+                            // 古いデータ形式(v1)か新しい形式(v2)か判別して整形
+                            parsed.forEach(item => {
+                                let historyItem = {};
+                                if (item.timestamp) { // v2形式
+                                    historyItem = item;
+                                } else if (item.date) { // v1形式 (日付文字列しかない場合)
+                                    // 現在年を補完してtimestampを作る簡易対応
+                                    const d = new Date(item.date); // これだと正確な日付にならない可能性あり
+                                    historyItem = {
+                                        id: Date.now() + Math.random(),
+                                        timestamp: new Date().getTime(), // 正確な復元は難しいので現在時刻等にするかスキップ
+                                        pay: item.pay
+                                    };
+                                }
+                                if(historyItem.pay) appData.history.push(historyItem);
+                            });
+                            foundOldData = true;
+                        } else if (typeof parsed === 'number' || typeof parsed === 'string') {
+                            // 時給設定の場合
+                            appData.wage = parseInt(parsed);
+                        }
+                    } catch(e) { console.error("移行エラー", e); }
+                }
+            });
+
+            if (foundOldData) {
+                alert("以前のバージョンのデータが見つかりました。自動で引き継ぎました！");
+                saveData(); // 新しい形式で保存し直す
+            }
+        }
+    }
+
+    function saveData() {
+        localStorage.setItem(KEY_DATA, JSON.stringify(appData));
+    }
+
+    // --- 計算処理 ---
+    function calculateAndSave() {
+        const wage = parseInt(document.getElementById('hourlyWage').value);
+        const startStr = document.getElementById('startTime').value;
+        const endStr = document.getElementById('endTime').value;
+        const breakMins = parseInt(document.getElementById('breakTime').value) || 0;
+        const dateVal = document.getElementById('workDate').value;
+
+        if (!wage || !startStr || !endStr || !dateVal) { alert("入力を確認してください"); return; }
+
+        appData.wage = wage; // 時給を更新
+
+        const startDate = new Date(`${dateVal}T${startStr}`);
+        let endDate = new Date(`${dateVal}T${endStr}`);
+        if (endDate < startDate) endDate.setDate(endDate.getDate() + 1);
+
+        const totalDurationMins = (endDate - startDate) / 1000 / 60;
+        
+        let totalLate = 0;
+        let totalNormal = 0;
+        let current = new Date(startDate);
+        for (let i = 0; i < totalDurationMins; i++) {
+            const h = current.getHours();
+            if (h >= 22 || h < 5) totalLate++; else totalNormal++;
+            current.setMinutes(current.getMinutes() + 1);
+        }
+
+        let remainingBreak = breakMins;
+        if (totalNormal >= remainingBreak) { totalNormal -= remainingBreak; remainingBreak = 0; }
+        else { remainingBreak -= totalNormal; totalNormal = 0; }
+        if (remainingBreak > 0) totalLate -= remainingBreak;
+        if (totalLate < 0) totalLate = 0;
+
+        const normalPay = Math.floor(wage * (totalNormal / 60));
+        const latePay = Math.floor(Math.floor(wage * 1.25) * (totalLate / 60));
+        const totalPay = normalPay + latePay;
+
+        // 保存
+        appData.history.push({
+            id: Date.now(),
+            timestamp: startDate.getTime(),
+            pay: totalPay
+        });
+        saveData();
+
+        // 表示
