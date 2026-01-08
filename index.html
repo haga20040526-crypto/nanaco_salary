@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>給与マネージャー (Safe Ver.)</title>
+    <title>給与マネージャー (Smart Ver.)</title>
     <style>
         :root { --mcd-red: #DA291C; --mcd-yellow: #FFC72C; --bg-color: #fffbea; --text-dark: #333; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background-color: var(--bg-color); color: var(--text-dark); max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
@@ -14,10 +14,15 @@
         h1 { text-align: center; margin-bottom: 20px; font-size: 1.4rem; color: var(--mcd-red); font-weight: 900; }
         h2 { font-size: 1.1rem; margin-top: 0; border-left: 5px solid var(--mcd-yellow); padding-left: 10px; }
         
-        .input-group { margin-bottom: 12px; }
+        .input-group { margin-bottom: 12px; position: relative; }
         label { display: block; font-weight: bold; font-size: 0.85rem; color: #555; }
         input { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; -webkit-appearance: none; }
+        input:focus { border-color: var(--mcd-red); outline: none; }
         
+        /* 自動入力時のアニメーション用 */
+        @keyframes flash { 0% { background-color: #fff; } 50% { background-color: #fff3cd; } 100% { background-color: #fff; } }
+        .auto-updated { animation: flash 1s ease-out; border-color: var(--mcd-yellow) !important; }
+
         button { width: 100%; padding: 14px; border: none; border-radius: 50px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: opacity 0.2s; }
         button:active { transform: scale(0.98); }
         .btn-primary { background-color: var(--mcd-red); color: var(--mcd-yellow); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
@@ -36,9 +41,11 @@
         .bar-fill { background-color: var(--mcd-yellow); height: 100%; border-radius: 4px; }
         .current-month .bar-fill { background-color: var(--mcd-red); }
 
-        /* データ管理エリア */
         .data-area { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #ddd; }
         #fileInput { display: none; }
+        
+        /* 補足メッセージ */
+        .hint-msg { font-size: 0.75rem; color: #888; margin-top: 4px; text-align: right; }
     </style>
 </head>
 <body>
@@ -51,11 +58,24 @@
 <div class="card card-top">
     <h1>給与マネージャー</h1>
     <div class="input-group"><label>基本時給</label><input type="number" id="hourlyWage"></div>
+    
     <div style="display:flex; gap:10px;">
-        <div class="input-group" style="flex:1;"><label>開始</label><input type="time" id="startTime" value="17:00"></div>
-        <div class="input-group" style="flex:1;"><label>終了</label><input type="time" id="endTime" value="23:00"></div>
+        <div class="input-group" style="flex:1;">
+            <label>開始</label>
+            <input type="time" id="startTime" value="17:00" onchange="autoSuggestBreak()">
+        </div>
+        <div class="input-group" style="flex:1;">
+            <label>終了</label>
+            <input type="time" id="endTime" value="23:00" onchange="autoSuggestBreak()">
+        </div>
     </div>
-    <div class="input-group"><label>休憩 (分)</label><input type="number" id="breakTime" value="45"></div>
+
+    <div class="input-group">
+        <label>休憩 (分)</label>
+        <input type="number" id="breakTime" value="45">
+        <div class="hint-msg" id="breakHint">勤務時間から自動提案中</div>
+    </div>
+
     <div class="input-group"><label>日付</label><input type="date" id="workDate"></div>
     <button class="btn-primary" onclick="calculateAndSave()">計算して保存</button>
     
@@ -71,9 +91,6 @@
 
 <div class="card">
     <h2>データ管理・バックアップ</h2>
-    <p style="font-size:0.8rem; color:#666; margin-top:0;">
-        機種変更やデータ消去に備えて、データをファイルに保存できます。
-    </p>
     <div style="display:flex; justify-content:space-between; margin-top:10px;">
         <button class="btn-action" onclick="downloadBackup()">💾 バックアップ保存</button>
         <button class="btn-action" style="background-color:#28a745;" onclick="document.getElementById('fileInput').click()">📂 データ復元</button>
@@ -86,22 +103,15 @@
 </div>
 
 <script>
-    // 定数設定
+    // --- 設定 ---
     const APP_PASSWORD = "0107";
-    // 統一ストレージキー（今後はこれを使い続ける）
     const KEY_DATA = "mcd_app_data_main"; 
-    // 過去のバージョンのキー（移行用）
     const OLD_KEYS = ["mcd_work_history", "mcd_work_history_v2", "mcd_wage_setting"];
+    let appData = { wage: 1100, history: [] };
 
-    // アプリ状態管理
-    let appData = {
-        wage: 1100,
-        history: []
-    };
-
-    // --- 初期化処理 ---
+    // --- 初期化 ---
     (function init() {
-        // パスワードチェック（不要ならこのif文を外してください）
+        // ※パスワード機能を使いたい場合は以下のコメントアウト( /* ... */ )を外してください
         /*
         const input = prompt("パスワードを入力");
         if (input !== APP_PASSWORD) {
@@ -110,73 +120,91 @@
         }
         */
 
-        // 1. データの読み込み & 移行チェック
         loadAndMigrateData();
         
-        // 2. 画面への反映
         document.getElementById('hourlyWage').value = appData.wage;
         document.getElementById('workDate').valueAsDate = new Date();
         refreshDashboard();
+        
+        // 初回ロード時も休憩時間を計算しておく
+        autoSuggestBreak();
     })();
 
-    // --- データ保存・読み込みロジック (最重要) ---
-    function loadAndMigrateData() {
-        // メインデータを取得
-        const savedJSON = localStorage.getItem(KEY_DATA);
+    // --- 休憩時間の自動提案ロジック ---
+    function autoSuggestBreak() {
+        const startStr = document.getElementById('startTime').value;
+        const endStr = document.getElementById('endTime').value;
+        
+        if (!startStr || !endStr) return;
 
+        // 時間計算
+        const startDate = new Date(`2000-01-01T${startStr}`);
+        let endDate = new Date(`2000-01-01T${endStr}`);
+        if (endDate < startDate) endDate.setDate(endDate.getDate() + 1);
+
+        const diffMins = (endDate - startDate) / 1000 / 60; // 拘束時間(分)
+
+        // 提案ロジック (労働基準法準拠)
+        // 6時間(360分)超 -> 45分
+        // 8時間(480分)超 -> 60分
+        let suggested = 0;
+        if (diffMins > 480) {
+            suggested = 60;
+        } else if (diffMins > 360) {
+            suggested = 45;
+        }
+
+        // 入力欄にセット & アニメーションで知らせる
+        const breakInput = document.getElementById('breakTime');
+        const currentVal = parseInt(breakInput.value);
+
+        // 値が変更になる場合のみ更新（ユーザーの手入力を邪魔しない配慮）
+        // ただし、今回は「時間変更＝シフト変更」とみなして常に再提案する仕様にします
+        breakInput.value = suggested;
+        
+        // 視覚的に「変わったよ！」と教える
+        breakInput.classList.remove('auto-updated');
+        void breakInput.offsetWidth; // リフロー強制
+        breakInput.classList.add('auto-updated');
+
+        // ヒント表示
+        const hours = Math.floor(diffMins / 60);
+        const mins = diffMins % 60;
+        document.getElementById('breakHint').innerText = `拘束時間: ${hours}時間${mins}分 → 法定休憩: ${suggested}分`;
+    }
+
+    // --- データ保存・読み込み ---
+    function loadAndMigrateData() {
+        const savedJSON = localStorage.getItem(KEY_DATA);
         if (savedJSON) {
-            // データがある場合：そのまま使う
             appData = JSON.parse(savedJSON);
         } else {
-            // データがない場合：古いバージョンのデータを探して移行する
-            console.log("メインデータなし。旧データの移行を試みます...");
+            // 旧データ移行
             let foundOldData = false;
-
-            // ver 1, 2 の履歴データを探す
             OLD_KEYS.forEach(k => {
                 const old = localStorage.getItem(k);
                 if (old) {
                     try {
                         const parsed = JSON.parse(old);
                         if (Array.isArray(parsed)) {
-                            // 履歴データの場合
-                            // 古いデータ形式(v1)か新しい形式(v2)か判別して整形
                             parsed.forEach(item => {
-                                let historyItem = {};
-                                if (item.timestamp) { // v2形式
-                                    historyItem = item;
-                                } else if (item.date) { // v1形式 (日付文字列しかない場合)
-                                    // 現在年を補完してtimestampを作る簡易対応
-                                    const d = new Date(item.date); // これだと正確な日付にならない可能性あり
-                                    historyItem = {
-                                        id: Date.now() + Math.random(),
-                                        timestamp: new Date().getTime(), // 正確な復元は難しいので現在時刻等にするかスキップ
-                                        pay: item.pay
-                                    };
-                                }
-                                if(historyItem.pay) appData.history.push(historyItem);
+                                let hItem = item.timestamp ? item : { id: Date.now()+Math.random(), timestamp: new Date().getTime(), pay: item.pay };
+                                if(hItem.pay) appData.history.push(hItem);
                             });
                             foundOldData = true;
                         } else if (typeof parsed === 'number' || typeof parsed === 'string') {
-                            // 時給設定の場合
                             appData.wage = parseInt(parsed);
                         }
-                    } catch(e) { console.error("移行エラー", e); }
+                    } catch(e) {}
                 }
             });
-
-            if (foundOldData) {
-                alert("以前のバージョンのデータが見つかりました。自動で引き継ぎました！");
-                saveData(); // 新しい形式で保存し直す
-            }
+            if (foundOldData) saveData();
         }
     }
 
-    function saveData() {
-        localStorage.setItem(KEY_DATA, JSON.stringify(appData));
-    }
+    function saveData() { localStorage.setItem(KEY_DATA, JSON.stringify(appData)); }
 
-    // --- 計算処理 ---
+    // --- 計算実行 ---
     function calculateAndSave() {
         const wage = parseInt(document.getElementById('hourlyWage').value);
         const startStr = document.getElementById('startTime').value;
@@ -186,7 +214,7 @@
 
         if (!wage || !startStr || !endStr || !dateVal) { alert("入力を確認してください"); return; }
 
-        appData.wage = wage; // 時給を更新
+        appData.wage = wage;
 
         const startDate = new Date(`${dateVal}T${startStr}`);
         let endDate = new Date(`${dateVal}T${endStr}`);
@@ -194,6 +222,7 @@
 
         const totalDurationMins = (endDate - startDate) / 1000 / 60;
         
+        // 深夜・通常計算
         let totalLate = 0;
         let totalNormal = 0;
         let current = new Date(startDate);
@@ -213,12 +242,76 @@
         const latePay = Math.floor(Math.floor(wage * 1.25) * (totalLate / 60));
         const totalPay = normalPay + latePay;
 
-        // 保存
-        appData.history.push({
-            id: Date.now(),
-            timestamp: startDate.getTime(),
-            pay: totalPay
-        });
+        appData.history.push({ id: Date.now(), timestamp: startDate.getTime(), pay: totalPay });
         saveData();
 
-        // 表示
+        document.getElementById('resultBox').style.display = 'block';
+        document.getElementById('displayPay').innerText = `¥${totalPay.toLocaleString()}`;
+        refreshDashboard();
+    }
+
+    function refreshDashboard() {
+        const now = new Date();
+        let weekTotal = 0;
+        let monthTotal = 0;
+        const monthlyStats = {};
+
+        const startOfWeek = new Date(now);
+        startOfWeek.setHours(0,0,0,0);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+
+        appData.history.forEach(item => {
+            const d = new Date(item.timestamp);
+            if (d >= startOfWeek) weekTotal += item.pay;
+            if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) monthTotal += item.pay;
+
+            const key = `${d.getFullYear()}-${d.getMonth()+1}`;
+            if (!monthlyStats[key]) monthlyStats[key] = 0;
+            monthlyStats[key] += item.pay;
+        });
+
+        document.getElementById('weeklyTotal').innerText = `¥${weekTotal.toLocaleString()}`;
+        document.getElementById('monthlyTotal').innerText = `¥${monthTotal.toLocaleString()}`;
+
+        const chartHtml = Object.keys(monthlyStats).sort().reverse().map(key => {
+            const max = Math.max(...Object.values(monthlyStats));
+            const percent = (monthlyStats[key] / max) * 100;
+            const isCurrent = key === `${now.getFullYear()}-${now.getMonth()+1}`;
+            return `<div class="month-item ${isCurrent ? 'current-month' : ''}">
+                <div style="display:flex; justify-content:space-between;">
+                    <span>${key}月</span><span>¥${monthlyStats[key].toLocaleString()}</span>
+                </div>
+                <div class="bar-container"><div class="bar-fill" style="width:${percent}%"></div></div>
+            </div>`;
+        }).join('');
+        document.getElementById('monthChartList').innerHTML = chartHtml || "<div style='text-align:center;color:#999'>履歴なし</div>";
+    }
+
+    function downloadBackup() {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(appData)], {type: "application/json"}));
+        a.download = `mcd_salary_backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+    }
+
+    function restoreBackup(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const loaded = JSON.parse(e.target.result);
+                if (loaded.wage && Array.isArray(loaded.history)) {
+                    if(confirm("復元しますか？")) { appData = loaded; saveData(); refreshDashboard(); alert("完了"); }
+                } else alert("データ形式が違います");
+            } catch(e) { alert("エラー"); }
+        };
+        reader.readAsText(file);
+    }
+
+    function fullReset() {
+        if(confirm("本当に全削除しますか？")) { localStorage.removeItem(KEY_DATA); location.reload(); }
+    }
+</script>
+</body>
+</html>
