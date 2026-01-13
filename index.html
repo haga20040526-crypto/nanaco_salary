@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>給与マネージャー (Smart Ver.)</title>
+    <title>給与マネージャー</title>
     <style>
         :root { --mcd-red: #DA291C; --mcd-yellow: #FFC72C; --bg-color: #fffbea; --text-dark: #333; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background-color: var(--bg-color); color: var(--text-dark); max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
@@ -12,14 +12,13 @@
         .card-top { border-top: 6px solid var(--mcd-red); }
         
         h1 { text-align: center; margin-bottom: 20px; font-size: 1.4rem; color: var(--mcd-red); font-weight: 900; }
-        h2 { font-size: 1.1rem; margin-top: 0; border-left: 5px solid var(--mcd-yellow); padding-left: 10px; }
+        h2 { font-size: 1.1rem; margin-top: 0; border-left: 5px solid var(--mcd-yellow); padding-left: 10px; display: flex; justify-content: space-between; align-items: center;}
         
-        .input-group { margin-bottom: 12px; position: relative; }
+        .input-group { margin-bottom: 12px; }
         label { display: block; font-weight: bold; font-size: 0.85rem; color: #555; }
         input { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; -webkit-appearance: none; }
         input:focus { border-color: var(--mcd-red); outline: none; }
         
-        /* 自動入力時のアニメーション用 */
         @keyframes flash { 0% { background-color: #fff; } 50% { background-color: #fff3cd; } 100% { background-color: #fff; } }
         .auto-updated { animation: flash 1s ease-out; border-color: var(--mcd-yellow) !important; }
 
@@ -36,23 +35,32 @@
         .stat-box { flex: 1; background: white; padding: 15px; border-radius: 12px; text-align: center; border-bottom: 4px solid var(--mcd-red); }
         .stat-value { font-size: 1.4rem; font-weight: bold; }
         
-        .month-item { margin-bottom: 10px; font-size: 0.9rem; }
-        .bar-container { background-color: #eee; height: 10px; width: 100%; border-radius: 4px; margin-top: 2px; }
+        .month-item-graph { margin-bottom: 8px; font-size: 0.8rem; }
+        .bar-container { background-color: #eee; height: 8px; width: 100%; border-radius: 4px; margin-top: 2px; }
         .bar-fill { background-color: var(--mcd-yellow); height: 100%; border-radius: 4px; }
         .current-month .bar-fill { background-color: var(--mcd-red); }
 
+        .log-month-group { margin-bottom: 20px; }
+        .log-month-title { font-size: 0.9rem; font-weight: bold; color: #666; background: #eee; padding: 5px 10px; border-radius: 4px; margin-bottom: 10px; }
+        .log-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; padding: 10px 0; }
+        .log-left { flex: 1; }
+        .log-date { font-weight: bold; font-size: 0.95rem; display: block; }
+        .log-time { font-size: 0.8rem; color: #888; display: block; margin-top: 2px;}
+        .log-right { text-align: right; }
+        .log-pay { font-weight: bold; color: var(--mcd-red); font-size: 1.1rem; }
+        .log-delete { background: none; border: none; color: #ccc; font-size: 1.2rem; cursor: pointer; padding: 0 0 0 10px; width: auto; margin: 0; }
+        .log-delete:hover { color: red; }
+
         .data-area { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #ddd; }
         #fileInput { display: none; }
-        
-        /* 補足メッセージ */
         .hint-msg { font-size: 0.75rem; color: #888; margin-top: 4px; text-align: right; }
     </style>
 </head>
 <body>
 
 <div class="dashboard">
-    <div class="stat-box"><span>今週の合計</span><br><span class="stat-value" id="weeklyTotal">¥0</span></div>
-    <div class="stat-box"><span>今月の合計</span><br><span class="stat-value" id="monthlyTotal">¥0</span></div>
+    <div class="stat-box"><span>今週</span><br><span class="stat-value" id="weeklyTotal">¥0</span></div>
+    <div class="stat-box"><span>今月</span><br><span class="stat-value" id="monthlyTotal">¥0</span></div>
 </div>
 
 <div class="card card-top">
@@ -73,7 +81,7 @@
     <div class="input-group">
         <label>休憩 (分)</label>
         <input type="number" id="breakTime" value="45">
-        <div class="hint-msg" id="breakHint">勤務時間から自動提案中</div>
+        <div class="hint-msg" id="breakHint"></div>
     </div>
 
     <div class="input-group"><label>日付</label><input type="date" id="workDate"></div>
@@ -85,102 +93,78 @@
 </div>
 
 <div class="card">
-    <h2>月別レポート</h2>
+    <h2>勤務明細 📝</h2>
+    <div id="workLogList"></div>
+</div>
+
+<div class="card">
+    <h2>月別グラフ 📊</h2>
     <div id="monthChartList"></div>
 </div>
 
 <div class="card">
-    <h2>データ管理・バックアップ</h2>
+    <h2>設定・バックアップ</h2>
     <div style="display:flex; justify-content:space-between; margin-top:10px;">
-        <button class="btn-action" onclick="downloadBackup()">💾 バックアップ保存</button>
-        <button class="btn-action" style="background-color:#28a745;" onclick="document.getElementById('fileInput').click()">📂 データ復元</button>
+        <button class="btn-action" onclick="downloadBackup()">💾 保存</button>
+        <button class="btn-action" style="background-color:#28a745;" onclick="document.getElementById('fileInput').click()">📂 復元</button>
     </div>
     <input type="file" id="fileInput" accept=".json" onchange="restoreBackup(this)">
-    
     <div style="margin-top:20px; text-align:right;">
-        <button class="btn-secondary" onclick="fullReset()">⚠️ 全データ消去</button>
+        <button class="btn-secondary" onclick="fullReset()">⚠️ 全削除</button>
     </div>
 </div>
 
 <script>
-    // --- 設定 ---
-    const APP_PASSWORD = "040802";
     const KEY_DATA = "mcd_app_data_main"; 
     const OLD_KEYS = ["mcd_work_history", "mcd_work_history_v2", "mcd_wage_setting"];
     let appData = { wage: 1100, history: [] };
 
-    // --- 初期化 ---
     (function init() {
-        // ※パスワード機能を使いたい場合は以下のコメントアウト( /* ... */ )を外してください
-        
-        const input = prompt("パスワードを入力");
-        if (input !== APP_PASSWORD) {
-            document.body.innerHTML = "<h1 style='text-align:center;margin-top:50px;'>Locked</h1>";
-            return;
-        }
-        
-
         loadAndMigrateData();
-        
         document.getElementById('hourlyWage').value = appData.wage;
         document.getElementById('workDate').valueAsDate = new Date();
-        refreshDashboard();
-        
-        // 初回ロード時も休憩時間を計算しておく
+        refreshAll();
         autoSuggestBreak();
     })();
 
-    // --- 休憩時間の自動提案ロジック ---
+    // --- 休憩提案ロジック (店舗ルール: 6時間超=1時間) ---
     function autoSuggestBreak() {
         const startStr = document.getElementById('startTime').value;
         const endStr = document.getElementById('endTime').value;
-        
         if (!startStr || !endStr) return;
 
-        // 時間計算
         const startDate = new Date(`2000-01-01T${startStr}`);
         let endDate = new Date(`2000-01-01T${endStr}`);
         if (endDate < startDate) endDate.setDate(endDate.getDate() + 1);
 
-        const diffMins = (endDate - startDate) / 1000 / 60; // 拘束時間(分)
-
-        // 提案ロジック (労働基準法準拠)
-        // 6時間(360分)超 -> 45分
-        // 8時間(480分)超 -> 60分
+        const diffMins = (endDate - startDate) / 1000 / 60;
         let suggested = 0;
-        if (diffMins > 480) {
+
+        // 店舗ルール変更: 6時間(360分)を超えたら一律60分
+        if (diffMins > 360) {
             suggested = 60;
-        } else if (diffMins > 360) {
-            suggested = 45;
+        } else {
+            suggested = 0;
         }
 
-        // 入力欄にセット & アニメーションで知らせる
         const breakInput = document.getElementById('breakTime');
-        const currentVal = parseInt(breakInput.value);
-
-        // 値が変更になる場合のみ更新（ユーザーの手入力を邪魔しない配慮）
-        // ただし、今回は「時間変更＝シフト変更」とみなして常に再提案する仕様にします
         breakInput.value = suggested;
         
-        // 視覚的に「変わったよ！」と教える
         breakInput.classList.remove('auto-updated');
-        void breakInput.offsetWidth; // リフロー強制
+        void breakInput.offsetWidth;
         breakInput.classList.add('auto-updated');
 
-        // ヒント表示
-        const hours = Math.floor(diffMins / 60);
-        const mins = diffMins % 60;
-        document.getElementById('breakHint').innerText = `拘束時間: ${hours}時間${mins}分 → 法定休憩: ${suggested}分`;
+        const h = Math.floor(diffMins / 60);
+        const m = diffMins % 60;
+        document.getElementById('breakHint').innerText = `拘束: ${h}時間${m}分 → 自動提案: ${suggested}分`;
     }
 
-    // --- データ保存・読み込み ---
     function loadAndMigrateData() {
         const savedJSON = localStorage.getItem(KEY_DATA);
         if (savedJSON) {
             appData = JSON.parse(savedJSON);
         } else {
-            // 旧データ移行
-            let foundOldData = false;
+            let found = false;
             OLD_KEYS.forEach(k => {
                 const old = localStorage.getItem(k);
                 if (old) {
@@ -191,20 +175,19 @@
                                 let hItem = item.timestamp ? item : { id: Date.now()+Math.random(), timestamp: new Date().getTime(), pay: item.pay };
                                 if(hItem.pay) appData.history.push(hItem);
                             });
-                            foundOldData = true;
+                            found = true;
                         } else if (typeof parsed === 'number' || typeof parsed === 'string') {
                             appData.wage = parseInt(parsed);
                         }
                     } catch(e) {}
                 }
             });
-            if (foundOldData) saveData();
+            if (found) saveData();
         }
     }
 
     function saveData() { localStorage.setItem(KEY_DATA, JSON.stringify(appData)); }
 
-    // --- 計算実行 ---
     function calculateAndSave() {
         const wage = parseInt(document.getElementById('hourlyWage').value);
         const startStr = document.getElementById('startTime').value;
@@ -222,7 +205,6 @@
 
         const totalDurationMins = (endDate - startDate) / 1000 / 60;
         
-        // 深夜・通常計算
         let totalLate = 0;
         let totalNormal = 0;
         let current = new Date(startDate);
@@ -242,12 +224,31 @@
         const latePay = Math.floor(Math.floor(wage * 1.25) * (totalLate / 60));
         const totalPay = normalPay + latePay;
 
-        appData.history.push({ id: Date.now(), timestamp: startDate.getTime(), pay: totalPay });
+        appData.history.push({ 
+            id: Date.now(), 
+            timestamp: startDate.getTime(), 
+            pay: totalPay,
+            timeRange: `${startStr} - ${endStr}`, 
+            breakMins: breakMins 
+        });
         saveData();
 
         document.getElementById('resultBox').style.display = 'block';
         document.getElementById('displayPay').innerText = `¥${totalPay.toLocaleString()}`;
+        refreshAll();
+    }
+
+    function deleteItem(id) {
+        if(confirm("この履歴を削除しますか？")) {
+            appData.history = appData.history.filter(item => item.id !== id);
+            saveData();
+            refreshAll();
+        }
+    }
+
+    function refreshAll() {
         refreshDashboard();
+        renderWorkLog();
     }
 
     function refreshDashboard() {
@@ -277,7 +278,7 @@
             const max = Math.max(...Object.values(monthlyStats));
             const percent = (monthlyStats[key] / max) * 100;
             const isCurrent = key === `${now.getFullYear()}-${now.getMonth()+1}`;
-            return `<div class="month-item ${isCurrent ? 'current-month' : ''}">
+            return `<div class="month-item-graph ${isCurrent ? 'current-month' : ''}">
                 <div style="display:flex; justify-content:space-between;">
                     <span>${key}月</span><span>¥${monthlyStats[key].toLocaleString()}</span>
                 </div>
@@ -285,6 +286,52 @@
             </div>`;
         }).join('');
         document.getElementById('monthChartList').innerHTML = chartHtml || "<div style='text-align:center;color:#999'>履歴なし</div>";
+    }
+
+    function renderWorkLog() {
+        const logContainer = document.getElementById('workLogList');
+        logContainer.innerHTML = "";
+        const sortedHistory = [...appData.history].sort((a, b) => b.timestamp - a.timestamp);
+
+        if (sortedHistory.length === 0) {
+            logContainer.innerHTML = "<div style='text-align:center; color:#999;'>まだ記録がありません</div>";
+            return;
+        }
+
+        const grouped = {};
+        sortedHistory.forEach(item => {
+            const d = new Date(item.timestamp);
+            const monthKey = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+            if (!grouped[monthKey]) grouped[monthKey] = [];
+            grouped[monthKey].push(item);
+        });
+
+        Object.keys(grouped).forEach(key => {
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'log-month-group';
+            groupDiv.innerHTML = `<div class="log-month-title">${key}</div>`;
+
+            grouped[key].forEach(item => {
+                const d = new Date(item.timestamp);
+                const dateStr = `${d.getDate()}日 (${["日","月","火","水","木","金","土"][d.getDay()]})`;
+                const timeInfo = item.timeRange ? `${item.timeRange} (休${item.breakMins}分)` : '<span style="font-size:0.7rem; color:#ccc;">時間詳細なし</span>';
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'log-item';
+                itemDiv.innerHTML = `
+                    <div class="log-left">
+                        <span class="log-date">${dateStr}</span>
+                        <span class="log-time">${timeInfo}</span>
+                    </div>
+                    <div class="log-right">
+                        <span class="log-pay">¥${item.pay.toLocaleString()}</span>
+                    </div>
+                    <button class="log-delete" onclick="deleteItem(${item.id})">🗑️</button>
+                `;
+                groupDiv.appendChild(itemDiv);
+            });
+            logContainer.appendChild(groupDiv);
+        });
     }
 
     function downloadBackup() {
@@ -302,7 +349,7 @@
             try {
                 const loaded = JSON.parse(e.target.result);
                 if (loaded.wage && Array.isArray(loaded.history)) {
-                    if(confirm("復元しますか？")) { appData = loaded; saveData(); refreshDashboard(); alert("完了"); }
+                    if(confirm("復元しますか？")) { appData = loaded; saveData(); refreshAll(); alert("完了"); }
                 } else alert("データ形式が違います");
             } catch(e) { alert("エラー"); }
         };
