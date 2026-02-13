@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>給与マネージャー</title>
+    <title>給与マネージャー (Graph Ver.)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --mcd-red: #DA291C; --mcd-yellow: #FFC72C; --bg-color: #fffbea; --text-dark: #333; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background-color: var(--bg-color); color: var(--text-dark); max-width: 500px; margin: 0 auto; padding-bottom: 80px; }
@@ -35,11 +36,7 @@
         .stat-box { flex: 1; background: white; padding: 15px; border-radius: 12px; text-align: center; border-bottom: 4px solid var(--mcd-red); }
         .stat-value { font-size: 1.4rem; font-weight: bold; }
         
-        .month-item-graph { margin-bottom: 8px; font-size: 0.8rem; }
-        .bar-container { background-color: #eee; height: 8px; width: 100%; border-radius: 4px; margin-top: 2px; }
-        .bar-fill { background-color: var(--mcd-yellow); height: 100%; border-radius: 4px; }
-        .current-month .bar-fill { background-color: var(--mcd-red); }
-
+        /* ログエリア */
         .log-month-group { margin-bottom: 20px; }
         .log-month-title { font-size: 0.9rem; font-weight: bold; color: #666; background: #eee; padding: 5px 10px; border-radius: 4px; margin-bottom: 10px; }
         .log-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; padding: 10px 0; }
@@ -54,6 +51,9 @@
         .data-area { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #ddd; }
         #fileInput { display: none; }
         .hint-msg { font-size: 0.75rem; color: #888; margin-top: 4px; text-align: right; }
+
+        /* グラフ用コンテナ */
+        .chart-container { position: relative; height: 250px; width: 100%; }
     </style>
 </head>
 <body>
@@ -93,13 +93,15 @@
 </div>
 
 <div class="card">
-    <h2>勤務明細 📝</h2>
-    <div id="workLogList"></div>
+    <h2>月別推移グラフ 📈</h2>
+    <div class="chart-container">
+        <canvas id="salaryChart"></canvas>
+    </div>
 </div>
 
 <div class="card">
-    <h2>月別グラフ 📊</h2>
-    <div id="monthChartList"></div>
+    <h2>勤務明細 📝</h2>
+    <div id="workLogList"></div>
 </div>
 
 <div class="card">
@@ -118,6 +120,7 @@
     const KEY_DATA = "mcd_app_data_main"; 
     const OLD_KEYS = ["mcd_work_history", "mcd_work_history_v2", "mcd_wage_setting"];
     let appData = { wage: 1100, history: [] };
+    let myChart = null; // グラフのインスタンス保持用
 
     (function init() {
         loadAndMigrateData();
@@ -127,7 +130,7 @@
         autoSuggestBreak();
     })();
 
-    // --- 休憩提案ロジック (店舗ルール: 6時間超=1時間) ---
+    // --- 休憩提案 (6時間超=60分) ---
     function autoSuggestBreak() {
         const startStr = document.getElementById('startTime').value;
         const endStr = document.getElementById('endTime').value;
@@ -139,13 +142,7 @@
 
         const diffMins = (endDate - startDate) / 1000 / 60;
         let suggested = 0;
-
-        // 店舗ルール変更: 6時間(360分)を超えたら一律60分
-        if (diffMins > 360) {
-            suggested = 60;
-        } else {
-            suggested = 0;
-        }
+        if (diffMins > 360) suggested = 60; // 6時間超で60分
 
         const breakInput = document.getElementById('breakTime');
         breakInput.value = suggested;
@@ -249,13 +246,13 @@
     function refreshAll() {
         refreshDashboard();
         renderWorkLog();
+        renderChart(); // グラフ描画
     }
 
     function refreshDashboard() {
         const now = new Date();
         let weekTotal = 0;
         let monthTotal = 0;
-        const monthlyStats = {};
 
         const startOfWeek = new Date(now);
         startOfWeek.setHours(0,0,0,0);
@@ -265,27 +262,10 @@
             const d = new Date(item.timestamp);
             if (d >= startOfWeek) weekTotal += item.pay;
             if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) monthTotal += item.pay;
-
-            const key = `${d.getFullYear()}-${d.getMonth()+1}`;
-            if (!monthlyStats[key]) monthlyStats[key] = 0;
-            monthlyStats[key] += item.pay;
         });
 
         document.getElementById('weeklyTotal').innerText = `¥${weekTotal.toLocaleString()}`;
         document.getElementById('monthlyTotal').innerText = `¥${monthTotal.toLocaleString()}`;
-
-        const chartHtml = Object.keys(monthlyStats).sort().reverse().map(key => {
-            const max = Math.max(...Object.values(monthlyStats));
-            const percent = (monthlyStats[key] / max) * 100;
-            const isCurrent = key === `${now.getFullYear()}-${now.getMonth()+1}`;
-            return `<div class="month-item-graph ${isCurrent ? 'current-month' : ''}">
-                <div style="display:flex; justify-content:space-between;">
-                    <span>${key}月</span><span>¥${monthlyStats[key].toLocaleString()}</span>
-                </div>
-                <div class="bar-container"><div class="bar-fill" style="width:${percent}%"></div></div>
-            </div>`;
-        }).join('');
-        document.getElementById('monthChartList').innerHTML = chartHtml || "<div style='text-align:center;color:#999'>履歴なし</div>";
     }
 
     function renderWorkLog() {
@@ -331,6 +311,68 @@
                 groupDiv.appendChild(itemDiv);
             });
             logContainer.appendChild(groupDiv);
+        });
+    }
+
+    // --- Chart.jsを使ったグラフ描画 ---
+    function renderChart() {
+        // 集計処理
+        const monthlyStats = {};
+        appData.history.forEach(item => {
+            const d = new Date(item.timestamp);
+            const key = `${d.getFullYear()}-${d.getMonth()+1}`; // 2024-5 のようなキー
+            if (!monthlyStats[key]) monthlyStats[key] = 0;
+            monthlyStats[key] += item.pay;
+        });
+
+        // グラフ用にデータを整形 (日付順にソート)
+        const sortedKeys = Object.keys(monthlyStats).sort((a, b) => {
+            return new Date(a) - new Date(b);
+        });
+
+        const labels = sortedKeys.map(k => {
+            const [y, m] = k.split('-');
+            return `${m}月`; // X軸のラベル
+        });
+        const dataValues = sortedKeys.map(k => monthlyStats[k]);
+
+        // 既存のグラフがあれば削除 (再描画のため)
+        if (myChart) {
+            myChart.destroy();
+        }
+
+        // グラフ描画
+        const ctx = document.getElementById('salaryChart').getContext('2d');
+        myChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '給与 (円)',
+                    data: dataValues,
+                    backgroundColor: 'rgba(218, 41, 28, 0.7)', // マック赤
+                    borderColor: 'rgba(255, 199, 44, 1)', // マック黄
+                    borderWidth: 2,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '¥' + value.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false } // 凡例は消す
+                }
+            }
         });
     }
 
